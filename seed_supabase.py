@@ -23,26 +23,37 @@ from app.models import User, Base
 # 1. Buat seluruh tabel jika belum ada
 Base.metadata.create_all(bind=engine)
 
-# 2. Buat akun Admin & Teknisi Pertama
+# 2. Buat atau Update Akun Admin & Teknisi
 db = SessionLocal()
-existing_admin = db.query(User).filter(User.username == "admin").first()
 
-if not existing_admin:
+admin_user = db.query(User).filter(User.username == "admin").first()
+tech_user = db.query(User).filter(User.username == "teknisi").first()
+
+# Update / Buat Admin
+if admin_user:
+    admin_user.hashed_password = pwd_context.hash(ADMIN_PASS)
+    print("Password 'admin' berhasil diperbarui!")
+else:
     admin_user = User(
         username="admin", 
         hashed_password=pwd_context.hash(ADMIN_PASS), 
         role="ADMIN"
     )
+    db.add(admin_user)
+    print("Akun 'admin' berhasil dibuat!")
+
+# Update / Buat Teknisi
+if tech_user:
+    tech_user.hashed_password = pwd_context.hash(TECH_PASS)
+    print("Password 'teknisi' berhasil diperbarui!")
+else:
     tech_user = User(
         username="teknisi", 
         hashed_password=pwd_context.hash(TECH_PASS), 
         role="TECHNICIAN"
     )
-    db.add(admin_user)
     db.add(tech_user)
-    db.commit()
-    print("Berhasil membuat akun 'admin' & 'teknisi' menggunakan password dari .env!")
-else:
-    print("Akun admin/teknisi sudah ada di database.")
+    print("Akun 'teknisi' berhasil dibuat!")
 
+db.commit()
 db.close()

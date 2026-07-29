@@ -33,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SECRET_KEY = "cruzto_care_secret_key_super_aman"
+SECRET_KEY = os.getenv("SECRET_KEY", "cruzto_care_secret_key_super_aman")
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security_bearer = HTTPBearer()
