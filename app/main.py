@@ -166,6 +166,19 @@ def update_inventory_stock(item_id: int, payload: InventoryUpdateStock, db: Sess
     db.commit()
     return item
 
+@app.delete("/api/inventory/{item_id}")
+def delete_inventory_item(
+    item_id: int, 
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    item = db.query(models.Inventory).filter(models.Inventory.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Bahan baku tidak ditemukan")
+    
+    db.delete(item)
+    db.commit()
+    return {"message": f"Bahan baku '{item.name}' berhasil dihapus"}
 
 @app.get("/api/analytics/monthly")
 def get_monthly_financial_report(year: int, month: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
