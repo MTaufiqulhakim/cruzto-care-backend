@@ -37,7 +37,8 @@ class Order(Base):
     total_amount = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
+    discount = Column(Float, default=0.0)
+    dp = Column(Float, default=0.0)
     customer = relationship("Customer", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 

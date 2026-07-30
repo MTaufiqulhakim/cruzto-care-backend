@@ -231,6 +231,8 @@ def export_monthly_financial_excel(year: int, month: int, db: Session = Depends(
             "No. WhatsApp": customer_phone,
             "Metode Layanan": ord.order_type,
             "Detail Sepatu & Jasa": items_desc,
+            "Diskon (Rp)": getattr(ord, 'discount', 0.0) or 0.0,
+            "DP Terbayar (Rp)": getattr(ord, 'dp', 0.0) or 0.0,
             "Total Tagihan (Rp)": ord.total_amount,
             "Status Pembayaran": "LUNAS" if ord.payment_status == "PAID" else "BELUM DIBAYAR",
             "Status Pengerjaan": ord.status
@@ -239,8 +241,8 @@ def export_monthly_financial_excel(year: int, month: int, db: Session = Depends(
     if not data:
         df = pd.DataFrame(columns=[
             "ID Order", "Tanggal Transaksi", "Nama Pelanggan", "No. WhatsApp",
-            "Metode Layanan", "Detail Sepatu & Jasa", "Total Tagihan (Rp)",
-            "Status Pembayaran", "Status Pengerjaan"
+            "Metode Layanan", "Detail Sepatu & Jasa", "Diskon (Rp)", "DP Terbayar (Rp)",
+            "Total Tagihan (Rp)", "Status Pembayaran", "Status Pengerjaan"
         ])
     else:
         df = pd.DataFrame(data)
@@ -275,7 +277,6 @@ def generate_order_id(db: Session):
 
 @app.post("/api/orders", response_model=schemas.OrderResponse)
 def create_order(order_data: schemas.OrderCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
-    # Cari dulu apakah customer dengan nomor HP ini sudah terdaftar
     customer = db.query(models.Customer).filter(models.Customer.phone == order_data.customer.phone).first()
     
     if not customer:
@@ -292,13 +293,18 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(database
             db.flush()
 
     new_order_id = generate_order_id(db)
-    total = sum(item.price for item in order_data.items)
+    subtotal = sum(item.price for item in order_data.items)
+    discount = getattr(order_data, 'discount', 0.0) or 0.0
+    dp = getattr(order_data, 'dp', 0.0) or 0.0
+    final_total = max(0.0, subtotal - discount)
     
     new_order = models.Order(
         id=new_order_id,
         customer_id=customer.id,
         order_type=order_data.order_type,
-        total_amount=total
+        total_amount=final_total,
+        discount=discount,
+        dp=dp
     )
     db.add(new_order)
 
@@ -379,7 +385,7 @@ def delete_order(order_id: str, db: Session = Depends(database.get_db), current_
     return {"message": "Order berhasil dihapus"}
 
 
-# --- 3. PUBLIC ENDPOINTS (TANPA BUBUTUHAN JWT TOKEN) ---
+# --- 3. PUBLIC ENDPOINTS (TANPA BUTUH JWT TOKEN) ---
 
 @app.get("/api/orders/{order_id}", response_model=schemas.OrderResponse)
 def get_order_for_tracking(order_id: str, db: Session = Depends(database.get_db)):
@@ -500,21 +506,28 @@ def generate_order_pdf(order_id: str, db: Session = Depends(database.get_db)):
     pdf.set_x(12)
     pdf.cell(0, 4.5, "  -   Reglue garansi 1 bulan", ln=1)
 
-    total_str = f"{int(order.total_amount):,}".replace(",", ".")
+    # Format Nilai Discount, DP, dan Total untuk Cetak PDF
+    discount_val = getattr(order, 'discount', 0.0) or 0.0
+    dp_val = getattr(order, 'dp', 0.0) or 0.0
+    total_val = order.total_amount or 0.0
+
+    discount_str = f"Rp {int(discount_val):,}".replace(",", ".") if discount_val > 0 else "Rp -"
+    dp_str = f"Rp {int(dp_val):,}".replace(",", ".") if dp_val > 0 else "Rp -"
+    total_str = f"Rp {int(total_val):,}".replace(",", ".")
 
     pdf.set_xy(110, y_bottom)
     pdf.set_font('Helvetica', 'B', 9.5)
     pdf.cell(30, 5, "Discount:", align='L')
-    pdf.cell(30, 5, "Rp", align='R', ln=1)
+    pdf.cell(30, 5, discount_str, align='R', ln=1)
 
     pdf.set_xy(110, y_bottom + 5)
     pdf.cell(30, 5, "Dp:", align='L')
-    pdf.cell(30, 5, "Rp", align='R', ln=1)
+    pdf.cell(30, 5, dp_str, align='R', ln=1)
 
     pdf.set_xy(110, y_bottom + 10)
     pdf.set_font('Helvetica', 'B', 10.5)
     pdf.cell(30, 6, "Total:", align='L')
-    pdf.cell(30, 6, f"Rp {total_str}", align='R', ln=1)
+    pdf.cell(30, 6, total_str, align='R', ln=1)
 
     pdf.set_draw_color(120, 120, 120)
     pdf.set_line_width(0.6)

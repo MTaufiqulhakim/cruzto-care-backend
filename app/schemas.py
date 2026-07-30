@@ -41,17 +41,19 @@ class OrderCreate(BaseModel):
     customer: CustomerCreate
     order_type: str
     items: List[OrderItemCreate]
+    discount: float = 0.0
+    dp: float = 0.0
 
 class OrderResponse(BaseModel):
     id: str
-    customer_id: Optional[int] = None
+    customer_id: int
     order_type: str
+    total_amount: float
+    discount: float = 0.0
+    dp: float = 0.0
     status: str
     payment_status: str
-    total_amount: float
     created_at: datetime
-    
-    # INI KUNCI UTAMA: Wajib memasukkan objek CustomerResponse
     customer: Optional[CustomerResponse] = None
     items: List[OrderItemResponse] = []
 
